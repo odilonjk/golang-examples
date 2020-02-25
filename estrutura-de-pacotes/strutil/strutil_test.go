@@ -1,6 +1,8 @@
-package maisstrings
+package strutil
 
-import "testing"
+import (
+	"testing"
+)
 
 const fraseRevertida = "!iugesnoc uE"
 

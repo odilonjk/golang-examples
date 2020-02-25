@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/odilonjk/golang-examples/estrutura-de-pacotes/maisstrings"
+	"github.com/odilonjk/golang-examples/estrutura-de-pacotes/strutil"
 )
 
 func main() {
@@ -16,5 +16,5 @@ func OlaMundo() string {
 }
 
 func OlaMundoRevertido() string {
-	return maisstrings.Reverter(OlaMundo())
+	return strutil.Reverter(OlaMundo())
 }
