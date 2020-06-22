@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/odilonjk/golang-examples/processamento-assincrono/estoque/pkg/rabbit"
 	"github.com/streadway/amqp"
 )
 
@@ -24,101 +24,36 @@ type message struct {
 	RefCode   uuid.UUID
 	ColorCode uuid.UUID
 	Quantity  int
-	EventType string
 }
 
 func main() {
 	log.Println("Preparing to sent message to queue")
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open channel")
+	ch := rabbit.NewDefaultChannel()
 	defer ch.Close()
 
+	// required args to use Delayed Message plugin
 	exchangeArgs := make(amqp.Table)
 	exchangeArgs["x-delayed-type"] = "direct"
-	err = declareExchage(ch, productionOrderExchange, "x-delayed-message", exchangeArgs)
-	failOnError(err, "Failed to declare exchange "+productionOrderExchange)
 
-	err = declareExchage(ch, deadLetterExchange, "direct", nil)
-	failOnError(err, "Failed to declare exchange "+deadLetterExchange)
+	rabbit.DeclareExchange(ch, productionOrderExchange, "x-delayed-message", exchangeArgs)
+	rabbit.DeclareExchange(ch, deadLetterExchange, "direct", nil)
 
+	// config args for queue
 	queueArgs := make(amqp.Table)
 	queueArgs["x-max-length"] = 3
 	queueArgs["x-dead-letter-exchange"] = deadLetterExchange
 
-	err = declareQueue(ch, createQueue, queueArgs)
-	failOnError(err, "Failed to declare queue")
-	err = declareQueue(ch, deadLetterQueue, nil)
-	failOnError(err, "Failed to declare queue")
+	rabbit.DeclareQueue(ch, createQueue, queueArgs)
+	rabbit.DeclareQueue(ch, deadLetterQueue, nil)
 
-	err = bindQueue(ch, productionOrderExchange, createQueue)
-	failOnError(
-		err,
-		fmt.Sprintf("Failed to bind exchange %s with queue %s", productionOrderExchange, createQueue),
-	)
-	err = bindQueue(ch, deadLetterExchange, deadLetterQueue)
-	failOnError(
-		err,
-		fmt.Sprintf("Failed to bind exchange %s with queue %s", productionOrderExchange, createQueue),
-	)
+	rabbit.BindQueue(ch, productionOrderExchange, createQueue, routingKey)
+	rabbit.BindQueue(ch, deadLetterExchange, deadLetterQueue, routingKey)
 
 	m := createMsgAsJSON()
-	err = publishMessage(ch, m)
-	failOnError(err, "Failed to publish message")
+	rabbit.Publish(ch, m, productionOrderExchange, routingKey)
 
 	log.Println("Message sent to queue")
-}
-
-// declareExchange creates a exchange
-func declareExchage(ch *amqp.Channel, n, t string, args amqp.Table) error {
-	return ch.ExchangeDeclare(
-		n,
-		t,
-		true,
-		false,
-		false,
-		false,
-		args,
-	)
-}
-
-// newQueue declares a new queue
-func declareQueue(ch *amqp.Channel, n string, args amqp.Table) (err error) {
-	_, err = ch.QueueDeclare(
-		n,
-		true, false,
-		false,
-		false,
-		args,
-	)
-	return
-}
-
-// bindQueue creates the binding between a queue and an exchange
-func bindQueue(ch *amqp.Channel, exchange, queue string) error {
-	return ch.QueueBind(
-		queue,
-		routingKey,
-		exchange,
-		false,
-		nil)
-}
-
-// publishMessage sends the JSON message to the given exchange
-func publishMessage(ch *amqp.Channel, m []byte) error {
-	return ch.Publish(
-		productionOrderExchange,
-		routingKey,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        m,
-		})
 }
 
 // createMsgAsJSON creates a message with random values and parses it to JSON
@@ -126,8 +61,8 @@ func createMsgAsJSON() (j []byte) {
 	rand.Seed(time.Now().UnixNano())
 	qty := rand.Intn(9999999)
 	refCode := uuid.New()
-	color := uuid.New()
-	msg := message{refCode, color, qty, "CREATE"}
+	colorCode := uuid.New()
+	msg := message{refCode, colorCode, qty}
 
 	j, err := json.Marshal(msg)
 	failOnError(err, "Failed to parse message into JSON")

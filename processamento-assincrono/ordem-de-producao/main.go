@@ -2,98 +2,94 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
 
 	"github.com/google/uuid"
+	"github.com/odilonjk/golang-examples/processamento-assincrono/estoque/pkg/rabbit"
 	"github.com/streadway/amqp"
 )
 
-const (
-	productionOrderExchange = "productionorder"
-	deadLetterExchange      = "productionorder.dlx"
-	createQueue             = "create.productionorder"
-	deadLetterQueue         = "create.productionorder.dlx"
-	routingKey              = "create"
-)
+const createQueue = "create.productionorder"
 
 // message sent to RabbitMQ
 type message struct {
 	RefCode   uuid.UUID
 	ColorCode uuid.UUID
 	Quantity  int
-	EventType string
 }
 
 func main() {
 	log.Println("Production Order initialized")
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open channel")
+	ch := rabbit.NewDefaultChannel()
 	defer ch.Close()
 
 	ok := true
 	for ok {
-		msg, hasMore, err := ch.Get(
-			createQueue,
-			false,
-		)
+		msg, hasMore := rabbit.Get(ch, createQueue)
 		ok = hasMore
-		failOnError(err, "Failed to get message")
 
-		if msg.Body != nil {
-			var m message
-			err = json.Unmarshal(msg.Body, &m)
-			failOnError(err, "Failed to decode message")
-			if m.Quantity > 500000 {
-				log.Println("Error processing ref. code: " + m.RefCode.String())
-				err := publishRetry(ch, msg)
-				failOnError(err, fmt.Sprintf("Failed to retry %v", m))
-			}
-			log.Println("Created production order for ref. code: " + m.RefCode.String())
-			msg.Ack(false)
+		err := processMsg(msg)
+		if err != nil {
+			handleRetry(ch, msg)
 		}
+		msg.Ack(false)
 	}
 
 	log.Println("All production orders where processed")
 }
 
-func publishRetry(ch *amqp.Channel, d amqp.Delivery) error {
-
-	var delay int32
-	if d.Headers["x-delay"] != nil {
-		n := d.Headers["x-delay"].(int32)
-		delay = int32(math.Abs(float64(n)))
+// processMsg will send to retry queue production orders with quantity over 500000
+func processMsg(msg amqp.Delivery) (err error) {
+	if msg.Body != nil {
+		var m message
+		err := json.Unmarshal(msg.Body, &m)
+		failOnError(err, "Failed to decode message")
+		if m.Quantity > 500000 {
+			err = errors.New("Maximum quantity exceeded")
+		}
+		log.Println("Created production order for ref. code: " + m.RefCode.String())
 	}
-	delay += 5000
+	return
+}
+
+// handleRetry will calculate delay, retry attempts, and finally will publish it
+func handleRetry(ch *amqp.Channel, m amqp.Delivery) {
+	delay := calculateDelay(m.Headers)
 	log.Println(fmt.Sprintf("Delayed for %dms", delay))
 
-	var retry int32
-	if d.Headers["x-retry-count"] != nil {
-		retry = d.Headers["x-retry-count"].(int32)
-	}
-	retry++
-	log.Println(fmt.Sprintf("Retrying for %d time", retry))
+	retryCount := calculateRetry(m.Headers)
+	log.Println(fmt.Sprintf("Retrying for %d time", retryCount))
 
+	// required header with delay and retry counter
 	headers := make(amqp.Table)
 	headers["x-delay"] = delay
-	headers["x-retry-count"] = retry
+	headers["x-retry-count"] = retryCount
 
-	return ch.Publish(
-		d.Exchange,
-		d.RoutingKey,
-		false,
-		false,
-		amqp.Publishing{
-			Headers:     headers,
-			ContentType: "application/json",
-			Body:        d.Body,
-		})
+	rabbit.Publish(ch, m, headers)
+}
+
+// calculateDelay adds 5000ms to last delay found on message header
+func calculateDelay(h amqp.Table) int32 {
+	var d int32
+	if h["x-delay"] != nil {
+		n := h["x-delay"].(int32)
+		d = int32(math.Abs(float64(n)))
+	}
+	return d + 5000
+}
+
+// calculateRetry adds 1 to last retry counter found on message header
+func calculateRetry(h amqp.Table) int32 {
+	var r int32
+	lastCount := h["x-retry-count"]
+	if lastCount != nil {
+		r = lastCount.(int32)
+	}
+	return r + 1
 }
 
 func failOnError(err error, msg string) {
