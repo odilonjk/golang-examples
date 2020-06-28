@@ -66,7 +66,7 @@ func processMsg(msg amqp.Delivery) (err error) {
 func handleFailedMsg(ch *amqp.Channel, m amqp.Delivery) {
 	retryCount := getRetry(m.Headers)
 	headers := make(amqp.Table)
-	if retryCount > 2 {
+	if retryCount >= 2 {
 		rabbit.Publish(ch, deadLetterExchange, routingKey, m.Body, nil)
 	} else {
 		headers["x-delay"] = getDelay(m.Headers) + 5000
