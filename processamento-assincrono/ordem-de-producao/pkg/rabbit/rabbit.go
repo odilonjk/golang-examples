@@ -18,18 +18,18 @@ func NewDefaultChannel() *amqp.Channel {
 }
 
 // Publish sends the message to the given exchange and routing key
-func Publish(ch *amqp.Channel, d amqp.Delivery, h amqp.Table) {
+func Publish(ch *amqp.Channel, e, r string, b []byte, h amqp.Table) {
 	err := ch.Publish(
-		d.Exchange,
-		d.RoutingKey,
+		e,
+		r,
 		false,
 		false,
 		amqp.Publishing{
 			Headers:     h,
 			ContentType: "application/json",
-			Body:        d.Body,
+			Body:        b,
 		})
-	failOnError(err, "Failed to publish on exchange "+d.Exchange)
+	failOnError(err, "Failed to publish on exchange "+e)
 }
 
 // Get the delivery from queue
