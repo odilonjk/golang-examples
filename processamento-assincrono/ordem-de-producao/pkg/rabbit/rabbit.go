@@ -32,14 +32,19 @@ func Publish(ch *amqp.Channel, e, r string, b []byte, h amqp.Table) {
 	failOnError(err, "Failed to publish on exchange "+e)
 }
 
-// Get the delivery from queue
-func Get(ch *amqp.Channel, q string) (amqp.Delivery, bool) {
-	msg, hasMore, err := ch.Get(
+// Consume returns a consumer for the given queue
+func Consume(ch *amqp.Channel, q string) (d <-chan amqp.Delivery) {
+	d, err := ch.Consume(
 		q,
+		"production-order",
 		false,
+		false,
+		false,
+		false,
+		nil,
 	)
-	failOnError(err, "Failed to get message from queue "+q)
-	return msg, hasMore
+	failOnError(err, "Failed to consume from queue "+q)
+	return
 }
 
 // failOnError log and exit in case of error

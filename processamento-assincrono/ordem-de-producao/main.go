@@ -31,19 +31,21 @@ func main() {
 	ch := rabbit.NewDefaultChannel()
 	defer ch.Close()
 
-	ok := true
-	for ok {
-		msg, hasMore := rabbit.Get(ch, createQueue)
-		ok = hasMore
+	msgs := rabbit.Consume(ch, createQueue)
 
-		err := processMsg(msg)
-		if err != nil {
-			handleFailedMsg(ch, msg)
+	forever := make(chan bool)
+	go func() {
+		for m := range msgs {
+			err := processMsg(m)
+			if err != nil {
+				handleFailedMsg(ch, m)
+			}
+			m.Ack(false)
 		}
-		msg.Ack(false)
-	}
+	}()
 
-	log.Println("All production orders where processed")
+	log.Println("Waiting messages to be delivered")
+	<-forever
 }
 
 // processMsg will send to retry queue production orders with quantity over 500000
