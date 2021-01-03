@@ -1,0 +1,77 @@
+version: '3'
+services:
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: "pg"
+    ports:
+      - "5432:5432"
+    volumes:
+      - $HOME/workspace/volumes/postgres:/var/lib/postgresql/data 
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  
+  app1:
+    image: booking-app:latest
+    ports:
+      - "8080:8080"
+    links:
+      - postgres
+    environment: 
+      - DB_SERVER=postgres
+    depends_on: 
+      - postgres
+
+  app2:
+    image: booking-app:latest
+    ports:
+      - "8081:8080"
+    links:
+      - postgres
+    environment: 
+      - DB_SERVER=postgres
+    depends_on: 
+      - postgres
+  
+  app3:
+    image: booking-app:latest
+    ports:
+      - "8082:8080"
+    links:
+      - postgres
+    environment: 
+      - DB_SERVER=postgres
+    depends_on: 
+      - postgres
+  
+  app4:
+    image: booking-app:latest
+    ports:
+      - "8083:8080"
+    links:
+      - postgres
+    environment: 
+      - DB_SERVER=postgres
+    depends_on: 
+      - postgres
+  
+  app5:
+    image: booking-app:latest
+    ports:
+      - "8084:8080"
+    links:
+      - postgres
+    environment: 
+      - DB_SERVER=postgres
+    depends_on: 
+      - postgres
+  
+  app6:
+    image: booking-app:latest
+    ports:
+      - "8085:8080"
+    links:
+      - postgres
+    environment: 
+      - DB_SERVER=postgres
+    depends_on: 
+      - postgres
