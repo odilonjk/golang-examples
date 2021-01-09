@@ -39,7 +39,6 @@ func createBooking(db *sql.DB, start, end string) (uuid.UUID, error) {
 		log.Fatal("Erro ao definir nivel de isolamento da transacao: ", err.Error())
 	}
 
-	// valida se ja nao existe uma reserva utilizando a data
 	exists := existsOverlappingBooking(tx, start, end)
 	if exists {
 		return uuid.UUID{}, errors.New("Ja existe uma reserva utilizando estas datas")
@@ -58,6 +57,7 @@ func createBooking(db *sql.DB, start, end string) (uuid.UUID, error) {
 	return id, err
 }
 
+// existsOverlappingBooking retorna se existe ou nao um registro que sera sobreposto
 func existsOverlappingBooking(tx *sql.Tx, start, end string) (exists bool) {
 	res, err := tx.Query(`
 		SELECT EXISTS(
