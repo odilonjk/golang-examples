@@ -18,31 +18,27 @@ var ports = [...]string{
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-	out := make(chan bool, 6)
+
 	var wg sync.WaitGroup
 
 	// realiza 6 chamadas simultaneas para as instancias da aplicacao
 	// sem o tratamento correto, resultaria em reservas sobrepostas
 	for i := 0; i < 6; i++ {
 		wg.Add(1)
-		go call(ports[i], out)
+		go call(ports[i], &wg)
 	}
 
-	func() {
-		wg.Wait()
-		close(out)
-	}()
+	wg.Wait()
+
 }
 
 // call realiza a chamada HTTP para gerar uma reserva
-func call(p string, out chan bool) {
-
+func call(p string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	path := "http://localhost:" + p + "/bookings"
 	_, err := http.PostForm(path, url.Values{"start_date": {"2020-01-07"}, "end_date": {"2020-01-10"}})
 	if err != nil {
 		log.Fatal("Erro ao realizar requisicao de criacao de reserva: ", err.Error())
 	}
 	log.Println("Requisicao realizada para porta", p)
-	out <- true
-
 }
