@@ -8,17 +8,14 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/odilonjk/pedra-papel-tesoura-llm/internal/models"
 )
 
-type message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
 type completionsRequest struct {
-	Messages    []message `json:"messages"`
-	Model       string    `json:"model"`
-	Temperature float32   `json:"temperature"`
+	Messages    []models.Message `json:"messages"`
+	Model       string           `json:"model"`
+	Temperature float32          `json:"temperature"`
 }
 
 type Local struct {
@@ -40,14 +37,11 @@ func NewLocal(baseURL string) *Local {
 	}
 }
 
-func (l *Local) GetNextMove(ctx context.Context) (string, error) {
+func (l *Local) GetNextMove(ctx context.Context, messages []models.Message) (string, error) {
 	url := fmt.Sprintf("%s%s", l.baseURL, chatCompletionsPath)
 	msgs := completionsRequest{
-		Model: model,
-		Messages: []message{
-			{Role: "system", Content: "You're playing the game 'Pedra, papel ou tesoura.'. You just need to select one of these values: pedra, or papel, or tesoura. Pedra is stronger than tesoura. Teroura is stronger than papel. Papel is stronger than pedra. You don't know which one your opponent will select, so it's just a matter of being lucky."},
-			{Role: "user", Content: "Your opponent is selecting one of the three options. Which one you select?"},
-		},
+		Model:       model,
+		Messages:    messages,
 		Temperature: 0.4,
 	}
 	msgsJSON, err := json.Marshal(msgs)
