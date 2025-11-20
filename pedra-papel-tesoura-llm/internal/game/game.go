@@ -1,8 +1,10 @@
 package game
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -10,29 +12,56 @@ import (
 )
 
 type Game struct {
-	llm llm.LLM
+	model llm.LLM
 	// player1score int
 	// player2score int
 }
 
-func New(llm llm.LLM) *Game {
-	return &Game{llm: llm}
+func New(model llm.LLM) *Game {
+	return &Game{model: model}
 }
 
-func (g *Game) Start() {
+func (g *Game) Start(ctx context.Context) {
 	fmt.Println("Iniciando novo jogo!")
 
+	for {
+		stop := nextRun(ctx, g.model)
+		if stop {
+			break
+		}
+		fmt.Printf("\nProxima rodada!")
+
+	}
+	fmt.Printf("\nJogo finalizado.")
+}
+
+func nextRun(ctx context.Context, model llm.LLM) (stop bool) {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
-	ctx := context.Background()
-
 	for i := range 2 {
-		go func(ctx context.Context, wg *sync.WaitGroup, llm llm.LLM, player int) {
+		player := i + 1
+		go func(ctx context.Context, wg *sync.WaitGroup, model llm.LLM, player int) {
 			defer wg.Done()
-			makeMove(ctx, llm, player)
-		}(ctx, wg, g.llm, i+1)
+			makeMove(ctx, model, player)
+		}(ctx, wg, model, player)
 	}
 	wg.Wait()
+	for {
+		fmt.Printf("\nContinue? [y/n]\n")
+		input := bufio.NewScanner(os.Stdin)
+		input.Scan()
+		v := strings.ToLower(input.Text())
+		switch v {
+		case "y":
+			stop = false
+			return
+		case "n":
+			stop = true
+			return
+		default:
+			fmt.Printf("\nPlease, select a valid input.")
+		}
+	}
 }
 
 func makeMove(ctx context.Context, l llm.LLM, player int) {
