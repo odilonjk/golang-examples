@@ -26,7 +26,7 @@ func (g *Game) Start() {
 	wg.Add(2)
 	ctx := context.Background()
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		go func(ctx context.Context, wg *sync.WaitGroup, llm llm.LLM, player int) {
 			defer wg.Done()
 			makeMove(ctx, llm, player)
