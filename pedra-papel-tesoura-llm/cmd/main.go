@@ -9,7 +9,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	llmClient := llm.NewLocal("localhost:4891")
+	llmClient := llm.NewLocal("http://localhost:4891")
 	game := game.New(llmClient)
 	game.Start(ctx)
 }

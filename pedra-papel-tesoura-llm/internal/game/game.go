@@ -42,6 +42,7 @@ func nextRun(ctx context.Context, model llm.LLM) (stop bool) {
 		player := i + 1
 		go func(ctx context.Context, wg *sync.WaitGroup, model llm.LLM, player int) {
 			defer wg.Done()
+			fmt.Printf("\nJogador %d pensando...", player)
 			makeMove(ctx, model, player)
 		}(ctx, wg, model, player)
 	}
