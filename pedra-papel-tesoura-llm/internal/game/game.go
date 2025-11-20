@@ -57,13 +57,14 @@ func (g *Game) Start(ctx context.Context) {
 			break
 		}
 		fmt.Printf("\nProxima rodada!")
+		g.status.turn = g.status.turn + 1
 	}
 	fmt.Printf("\nJogo finalizado.")
 }
 
 func (g *Game) computeResults() {
 	status := g.status
-	winner := 0
+	winner := 1
 	fmt.Printf("\nJogador 1 escolheu: %s\nJogador 2 escolheu: %s", status.p1move, status.p2move)
 	if status.p1move == "" || status.p2move == "" {
 		fmt.Printf("\nJogada invalida! Um ou ambos jogadores nao apresentaram sua opcao corretamente.")
@@ -210,7 +211,7 @@ func buildUpdateMessages(yourMove, opponentMove string, yourScore, otherScore in
 		},
 		{
 			Role:    "user",
-			Content: fmt.Sprintf("The other player selected **%s**. Current score is you with %d points and the other player with %d points. Next round! Pedra, papel, or tesoura. Which one you select?", opponentMove, yourScore, otherScore),
+			Content: fmt.Sprintf("The other player selected **%s**. Current score is you with %d points and the other player with %d points. Next round! Pedra, papel, or tesoura. Which one of the three options you select to try to beat your opponent?", opponentMove, yourScore, otherScore),
 		},
 	}
 }
